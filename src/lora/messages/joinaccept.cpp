@@ -156,7 +156,7 @@ void JoinAccept::compose(const Device *dev)
   const DeviceInfo *info = dev->info;
 
   if(!info) {
-    throw std::runtime_error("Device session not found!");
+    throw std::runtime_error("JoinAccept: Couldn't compose packet: device info not found!");
   }
 
   concat_bytearray(m_payload, payload);
@@ -174,7 +174,7 @@ void JoinAccept::parse(const Device *dev)
   const DeviceInfo *info = dev->info;
 
   if(!info) {
-    throw std::runtime_error("Device session not found!");
+    throw std::runtime_error("JoinAccept: Couldn't parse packet: device info not found!");
   }
 
   payload = aes128_encrypt(info->appKey, payload);

@@ -171,17 +171,16 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
   Command cmd = (Command)msg[3];
 
   if(version != 0x02) {
-    m_handler->log(lora::ERR, "Unknown protocol version!");
+    m_handler->log(lora::ERR, "ST: Unknown protocol version!");
     return false;
   }
 
   if(msg.size() > 12) {
     memcpy(message, &msg[12], msg.size()-12);
     message[msg.size()-12] = 0;
-    printf("Got json packet from %s: %s\n", src.address().c_str(), message);
+    m_handler->logf(lora::INFO, "ST: Got json packet from %s: %s\n", src.address().c_str(), message);
     if(!doc.deserialize_in_place(message)) {
-      m_handler->log(lora::ERR, "Invalid json packet received: ");
-      m_handler->log(lora::ERR, message);
+      m_handler->logf(lora::ERR, "ST: Invalid json packet received: %s", message);
       return false;
     }
   }
@@ -266,7 +265,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
             dataReceived(id, loraData, params);
           }
           catch(std::exception &e) {
-            m_handler->log(lora::ERR, e.what());
+            m_handler->logf(lora::ERR, "ST: %s", e.what());
           }
         }
       }

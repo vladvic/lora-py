@@ -37,6 +37,8 @@ public:
   deviceStatus(lora::DeviceSession *s, int batLevel, int margin);
   virtual void
   log(int level, const std::string &line);
+  virtual void
+  logf(int level, const std::string &format, ...);
   void send(lora::DeviceSession *session, int port, lora::Bytearray data, bool confirm);
 
 private:
@@ -55,5 +57,8 @@ private:
   std::string m_parserBase;
   uint32_t m_networkId;
   std::string m_configScript;
+
+  char *m_formatted;
+  size_t m_formattedSize;
 };
 

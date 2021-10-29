@@ -7,6 +7,7 @@
  * $Date$
  ***************************************************/
 
+#include <memory>
 #include <iostream>
 #include <stdexcept>
 #include "types.h"
@@ -18,6 +19,7 @@ namespace lora {
 
 Handler::Handler(AppHandler *handler)
   : m_handler(handler)
+  , m_lastPacketTime(0)
 {
 }
 
@@ -30,7 +32,7 @@ void Handler::dataReceived(const GatewayId &id, Bytearray &data, const MediaPara
     processJoinRequest(id, packet.message<JoinRequest>(), params);
     break;
   case JOIN_ACCEPT:
-    m_handler->log(WARN, "Join accept messages are not supported!");
+    m_handler->log(WARN, "LORA: Join accept messages are not supported!");
     break;
   case UNCONFIRMED_DATA_UP:
     processData(id, packet.message<UnconfirmedDataUp>(), params);
@@ -45,13 +47,13 @@ void Handler::dataReceived(const GatewayId &id, Bytearray &data, const MediaPara
   case REJOIN_REQUEST:
     break;
   default:
-    m_handler->log(ERR, "Unknown message type received!");
+    m_handler->log(ERR, "LORA: Unknown message type received!");
   }
 }
 
 void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaParameters &p)
 {
-  m_handler->log(ERR, "Processing join request message");
+  m_handler->log(INFO, "LORA: Processing join request message");
   Packet joinAcceptPacket(JOIN_ACCEPT);
   const JoinRequest &request = dynamic_cast<const JoinRequest&>(msg);
   auto devInfos = m_handler->findDeviceInfo(request.devEui(), request.appEui());
@@ -64,22 +66,28 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
     DeviceSession *session = devInfo->session;
     Device device(devInfo, session);
 
-    msg.setDevice(&device);
-
-    if(!msg.verify()) {
-      m_handler->log(INFO, "LoRa packet verification failed!");
+    try {
+      msg.setDevice(&device);
+    }
+    catch(std::exception &e) {
+      m_handler->logf(ERR, "%s", e.what());
       continue;
     }
 
-    if(session->devNOnce == nOnce) {
-      m_handler->log(INFO, "Device NOnce is not incremented!");
+    if(!msg.verify()) {
+      m_handler->log(INFO, "LORA: LoRa packet verification failed!");
+      continue;
+    }
+
+    if(session->devNOnce == nOnce && session->devNOnce != 0) {
+      m_handler->log(INFO, "LORA: Device NOnce is not incremented!");
       continue;
     }
 
     session->devNOnce = nOnce;
 
     JoinAccept &accept = joinAcceptPacket.message<JoinAccept>();
-    accept.setDevice(&device);
+    joinAcceptPacket.setDevice(&device);
     accept.setJoinNOnce(++ session->nOnce);
     accept.setNetworkId(session->networkId);
     accept.setDevAddress(session->deviceAddr);
@@ -103,7 +111,21 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
     auto payload = accept.getPayload();
     MediaSettings s;
 
-    s.txTimestampUs = p.rxTimestampUs + session->joinAckDelay1 * 1000000; // +5 seconds
+    unsigned int timestamp = p.rxTimestampUs + session->joinAckDelay1 * 1000000; // RX1 window
+
+    if (m_lastPacketTime < timestamp) {
+      if ((timestamp - m_lastPacketTime) < 500000) {
+        timestamp = p.rxTimestampUs + (session->joinAckDelay1 + 1) * 1000000; // RX2 window
+      }
+    }
+    else {
+      if ((m_lastPacketTime - timestamp) < 500000) {
+        timestamp = p.rxTimestampUs + (session->joinAckDelay1 + 1) * 1000000; // RX2 window
+      }
+    }
+
+    m_lastPacketTime = timestamp;
+    s.txTimestampUs = timestamp;
     s.frequency = p.frequency;
     s.rfChain = 0;
     s.modulation = p.modulation;
@@ -111,21 +133,23 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
     s.codingRate = p.codingRate;
     s.polarity = INVERSE;
 
+    std::string devEui = hexToString(request.devEui(), sizeof(EUI));
+    std::string appEui = hexToString(request.appEui(), sizeof(EUI));
+    m_handler->logf(INFO, "LORA: Sending join accept to device %s:%s!", devEui.c_str(), appEui.c_str());
     sendData(id, payload, s);
-
-    accept.parse(&device);
   }
 }
 
 void Handler::processData(const GatewayId &id, Message &msg, const MediaParameters &p)
 {
-  m_handler->log(ERR, "Processing data message");
+  m_handler->log(INFO, "LORA: Processing data message");
   DataUp &request = dynamic_cast<DataUp&>(msg);
   uint32_t deviceAddr = request.devAddress();
   auto devSessions = m_handler->findDeviceSession(deviceAddr);
   std::unique_ptr<SendDataItem> toSend(new SendDataItem);
   struct timespec curTime;
 
+  m_handler->logf(INFO, "LORA: Processing data message for device addr %u", deviceAddr);
   clock_gettime(CLOCK_MONOTONIC_RAW, &curTime);
 
   toSend->port = 0;
@@ -144,10 +168,18 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
     DeviceInfo *devInfo = session->device;
     Device device(devInfo, session);
 
-    request.setDevice(&device);
+    m_handler->logf(INFO, "LORA: Processing data for device %u:%u", session->deviceAddr, session->networkId);
+
+    try {
+      request.setDevice(&device);
+    }
+    catch(std::exception &e) {
+      m_handler->logf(ERR, "E: %s", e.what());
+      continue;
+    }
 
     if(!request.verify()) {
-      m_handler->log(INFO, "LoRa packet verification failed!");
+      m_handler->log(ERR, "LORA: LoRa packet verification failed!");
       continue;
     }
 
@@ -171,11 +203,11 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
           sendQueue.pop_front();
         }
         else {
-          m_handler->log(WARN, "Got ACK, but never sent confirmed packet!");
+          m_handler->log(WARN, "LORA: Got ACK, but never sent confirmed packet!");
         }
       }
       else {
-        m_handler->log(WARN, "Got ACK with empty queue!");
+        m_handler->log(WARN, "LORA: Got ACK with empty queue!");
       }
     }
 
@@ -187,7 +219,7 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
     if(!retransmitted) {
       if(data.size()) {
         if(request.port() == 0) {
-          m_handler->log(INFO, "Processing MAC command at port 0");
+          m_handler->log(INFO, "LORA: Processing MAC command at port 0");
           processMacCommand(id, session, p, data);
           gotCommands = true;
         }
@@ -195,11 +227,14 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
           m_handler->processAppData(session, request.port(), data);
         }
       }
+      else {
+        m_handler->log(WARN, "LORA: Empty data!");
+      }
       session->fCntUp = request.cnt();
       m_handler->saveDeviceSession(session);
     }
     else {
-      m_handler->log(INFO, "LoRa packet was retransmitted!");
+      m_handler->log(INFO, "LORA: LoRa packet was retransmitted!");
     }
 
     if(!request.opts().empty()) {
@@ -216,6 +251,7 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
     bool confirmed = (request.type() == CONFIRMED_DATA_UP);
 
     if(confirmed) {
+      m_handler->log(INFO, "LORA: This is a confirmed packet, sending confirmation!");
       toSend->ctrl |= ACK;
     }
 
@@ -399,7 +435,7 @@ Handler::processMacCommand(const GatewayId &id, DeviceSession *session, const Me
       }
       break;
     default:
-      printf("Unknown MAC command %d", (unsigned int)command[i]);
+      m_handler->logf(INFO, "Unknown MAC command %d", (unsigned int)command[i]);
       break;
     }
   }
@@ -427,12 +463,19 @@ Handler::sendDeviceData(const SendDataItem &data)
 
   auto payload = ack.getPayload();
 
+  std::string devEui = hexToString(devInfo->devEUI, sizeof(EUI));
+  std::string appEui = hexToString(devInfo->appEUI, sizeof(EUI));
+
   if (data.gatewayId != nullptr) {
+    std::string strId = data.gatewayId->toString();
+    m_handler->logf(INFO, "LORA: Sending device data through gw %s to device %s:%s", strId.c_str(), devEui.c_str(), appEui.c_str());
     sendData(*data.gatewayId, payload, data.settings);
   }
   else {
     for(auto &gw : m_gateways)
     {
+      std::string strId = gw.second->toString();
+      m_handler->logf(INFO, "LORA: Sending device data through gw %s to device %s:%s", strId.c_str(), devEui.c_str(), appEui.c_str());
       sendData(*gw.second, payload, data.settings);
     }
   }
@@ -444,7 +487,7 @@ Handler::addGateway(GatewayId *gw)
   std::string strId = gw->toString();
 
   if (m_gateways.find(strId) == m_gateways.end()) {
-    std::cout << "Adding gateway " << strId << std::endl;
+    m_handler->logf(INFO, "LORA: Adding gateway %s", strId.c_str());
     m_gateways.emplace(strId, std::unique_ptr<GatewayId>(gw->clone()));
   }
 }

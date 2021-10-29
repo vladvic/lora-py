@@ -67,6 +67,8 @@ public:
   deviceStatus(DeviceSession *s, int batLevel, int margin) = 0;
   virtual void
   log(int level, const std::string &line) = 0;
+  virtual void
+  logf(int level, const std::string &line, ...) = 0;
 };
 
 class Handler {
@@ -94,6 +96,7 @@ private:
   std::list<SendDataItem*> m_sendQueue;
   std::list<MacCommand> m_commands;
   std::map<std::string, std::unique_ptr<GatewayId>> m_gateways;
+  size_t m_lastPacketTime;
 };
 
 }

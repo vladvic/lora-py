@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <string.h>
+#include "../types.h"
 #include "../util/concat.h"
 #include "../aes.h"
 #include "dataup.h"
@@ -98,8 +99,10 @@ uint32_t DataUp::calcMic()
 
   // Block B0
   composeMsg(msg, getDevice());
-  Bytearray b0 = concat((uint8_t)0x49, (uint32_t)0, (uint8_t)getDirection(), 
-                        (uint32_t)m_devAddr, (uint32_t)m_cnt, (uint8_t)0, (uint8_t)msg.size());
+  uint32_t cnt  = m_cnt & 0xffff;
+
+  Bytearray b0 = concat((uint8_t)0x49, (uint16_t)0, (uint8_t)0, (uint8_t)0, (uint8_t)getDirection(), 
+                        (uint32_t)m_devAddr, (uint32_t)cnt, (uint8_t)0, (uint8_t)(msg.size()));
 
   b0.insert(b0.end(), msg.begin(), msg.end());
   Bytearray cmac = aes128_cmac(session->sNwkSIntKey, b0);

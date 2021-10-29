@@ -470,8 +470,13 @@ processAppData(const std::string &parser, const lora::DeviceSession *s, int port
       PyTuple_SetItem(pArgs, 2, pValue);
       //Py_DECREF(pValue);
 
-      PyObject_CallObject(pFunc, pArgs);
+      pValue = PyObject_CallObject(pFunc, pArgs);
 
+      if(!pValue) {
+        PyErr_Print();
+      }
+
+      Py_XDECREF(pValue);
       Py_DECREF(pArgs);
       Py_XDECREF(pFunc);
     }

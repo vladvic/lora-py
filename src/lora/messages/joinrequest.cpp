@@ -53,7 +53,7 @@ void JoinRequest::compose(const Device *dev)
   const DeviceInfo *device = dev->info;
 
   if(!device) {
-    throw std::runtime_error("Device not found!");
+    throw std::runtime_error("JoinRequest: Couldn't parse packet: device info not found!");
   }
 
   Bytearray appEui(m_appEui, m_appEui + sizeof(m_appEui));

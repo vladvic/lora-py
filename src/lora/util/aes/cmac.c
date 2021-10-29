@@ -15,6 +15,7 @@ const uint8_t const_Zero[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,};
 const uint8_t const_Rb[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x87,};
 const int block_size = 16;
 
+#ifdef TEST_CMAC
 static void
 print_buffer(unsigned char *b, int len) {
   int i;
@@ -23,6 +24,7 @@ print_buffer(unsigned char *b, int len) {
   }
   printf("\n");
 }
+#endif
 
 void CMAC_key_gen(const struct AES_ctx* ctx, char K1[16], char K2[16]) {
   // Generate K1 and K2 keys
