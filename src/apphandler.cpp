@@ -102,17 +102,16 @@ AppHandler::getDeviceFromScript(const lora::EUI &devEUI, const lora::EUI &appEUI
     if (!m_info[de+ae].session) {
       lora::DeviceSession sess;
       sess.device = &m_info[de+ae];
-      sess.networkId = m_networkId;
-      sess.rxDelay1 = 1;
+      sess.networkId   = m_networkId;
+      sess.rxDelay1    = 1;
       sess.joinAckDelay1 = 5;
       sess.rx2Channel  = 0;
       sess.rx2Datarate = lora::DR0;
-      sess.devNOnce   = 0;
+      sess.devNOnce    = 0;
       uint64_t addr;
 
       do {
         sess.deviceAddr = random() & 0x00ffffff;
-        sess.devNOnce   = 0;
         addr = (uint64_t)sess.networkId << 32;
         addr |= sess.deviceAddr;
       }
@@ -219,14 +218,14 @@ AppHandler::findDeviceSession(uint32_t deviceAddr, uint32_t networkAddr) {
   logf(INFO, "APP: Looking up device session %u:%u", deviceAddr, networkAddr);
   if(networkAddr == 0) {
     if(m_sessionByDevAddr.lower_bound(deviceAddr) == m_sessionByDevAddr.upper_bound(deviceAddr)) {
-      logf(INFO, "APP: Trying to get session from script: %u:%u", deviceAddr, networkAddr);
+      logf(INFO, "APP: Trying to get session from script: %u:%u", deviceAddr, 0);
       getSessionFromScript(deviceAddr, 0);
     }
 
     auto it = m_sessionByDevAddr.lower_bound(deviceAddr);
     auto up = m_sessionByDevAddr.upper_bound(deviceAddr);
 
-    logf(INFO, "APP: Extracting session for %u:%u", deviceAddr, networkAddr);
+    logf(INFO, "APP: Extracting session for %u:%u", deviceAddr, 0);
     for(; it != up; ++ it) {
       lst.push_back(it->second);
     }
@@ -235,6 +234,7 @@ AppHandler::findDeviceSession(uint32_t deviceAddr, uint32_t networkAddr) {
   }
 
   if(m_session.find(addr) == m_session.end()) {
+    logf(INFO, "APP: Trying to get session from script: %u:%u", deviceAddr, networkAddr);
     getSessionFromScript(deviceAddr, networkAddr);
   }
 

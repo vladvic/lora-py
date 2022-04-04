@@ -178,7 +178,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
   if(msg.size() > 12) {
     memcpy(message, &msg[12], msg.size()-12);
     message[msg.size()-12] = 0;
-    m_handler->logf(lora::INFO, "ST: Got json packet from %s: %s\n", src.address().c_str(), message);
+    m_handler->logf(lora::DEBUG, "ST: Got json packet from %s: %s\n", src.address().c_str(), message);
     if(!doc.deserialize_in_place(message)) {
       m_handler->logf(lora::ERR, "ST: Invalid json packet received: %s", message);
       return false;

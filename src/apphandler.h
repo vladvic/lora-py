@@ -36,7 +36,7 @@ public:
   virtual void
   deviceStatus(lora::DeviceSession *s, int batLevel, int margin);
   virtual void
-  log(int level, const std::string &line);
+  log(int level, const std::string &format);
   virtual void
   logf(int level, const std::string &format, ...);
   void send(lora::DeviceSession *session, int port, lora::Bytearray data, bool confirm);

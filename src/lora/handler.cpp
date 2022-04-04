@@ -53,11 +53,14 @@ void Handler::dataReceived(const GatewayId &id, Bytearray &data, const MediaPara
 
 void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaParameters &p)
 {
-  m_handler->log(INFO, "LORA: Processing join request message");
   Packet joinAcceptPacket(JOIN_ACCEPT);
   const JoinRequest &request = dynamic_cast<const JoinRequest&>(msg);
+  std::string devEui = hexToString(request.devEui(), sizeof(EUI));
+  std::string appEui = hexToString(request.appEui(), sizeof(EUI));
+  m_handler->logf(INFO, "LORA: Processing join request message for device %s:%s", devEui.c_str(), appEui.c_str());
   auto devInfos = m_handler->findDeviceInfo(request.devEui(), request.appEui());
   uint32_t nOnce = request.devNOnce();
+
   struct timespec curTime;
   clock_gettime(CLOCK_MONOTONIC_RAW, &curTime);
 
@@ -75,12 +78,12 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
     }
 
     if(!msg.verify()) {
-      m_handler->log(INFO, "LORA: LoRa packet verification failed!");
+      m_handler->log(ERR, "LORA: LoRa packet verification failed!");
       continue;
     }
 
     if(session->devNOnce == nOnce && session->devNOnce != 0) {
-      m_handler->log(INFO, "LORA: Device NOnce is not incremented!");
+      m_handler->logf(ERR, "LORA: Device NOnce is not incremented (old: %u, new: %u)!", session->devNOnce, nOnce);
       continue;
     }
 
@@ -102,10 +105,10 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
       }
     }
 
-    session->lastAccessTime = curTime.tv_sec * 1000000 + curTime.tv_nsec / 1000;
     session->generateSessionKeys();
     session->fCntUp = -1;
     session->fCntDown = 0;
+    session->lastAccessTime = curTime.tv_sec * 1000000 + curTime.tv_nsec / 1000;
     m_handler->saveDeviceSession(session);
 
     auto payload = accept.getPayload();
@@ -133,8 +136,6 @@ void Handler::processJoinRequest(const GatewayId &id, Message &msg, const MediaP
     s.codingRate = p.codingRate;
     s.polarity = INVERSE;
 
-    std::string devEui = hexToString(request.devEui(), sizeof(EUI));
-    std::string appEui = hexToString(request.appEui(), sizeof(EUI));
     m_handler->logf(INFO, "LORA: Sending join accept to device %s:%s!", devEui.c_str(), appEui.c_str());
     sendData(id, payload, s);
   }
@@ -228,13 +229,13 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
         }
       }
       else {
-        m_handler->log(WARN, "LORA: Empty data!");
+        m_handler->log(INFO, "LORA: Empty data!");
       }
       session->fCntUp = request.cnt();
       m_handler->saveDeviceSession(session);
     }
     else {
-      m_handler->log(INFO, "LORA: LoRa packet was retransmitted!");
+      m_handler->log(WARN, "LORA: LoRa packet was retransmitted!");
     }
 
     if(!request.opts().empty()) {
@@ -383,6 +384,7 @@ Handler::processMacCommand(const GatewayId &id, DeviceSession *session, const Me
   for(unsigned int i = 0; i < command.size(); ++ i) {
     switch(command[i]) {
     case LinkCheckReq:
+      m_handler->log(INFO, "LORA: Processing LinkCheckReq");
       {
       int gwcnt = 1;
       for(auto it = commands.begin(); it != commands.end(); ++ it) {
@@ -404,13 +406,16 @@ Handler::processMacCommand(const GatewayId &id, DeviceSession *session, const Me
       break;
     case DutyCycleAns:
       // No payload
+      m_handler->log(INFO, "LORA: Processing DutyCycleAns");
       break;
     case RXParamSetupAns:
       // Status payload
+      m_handler->log(INFO, "LORA: Processing RXParamSetupAns");
       ++ i;
       break;
     case DevStatusAns:
       // Battery level
+      m_handler->log(INFO, "LORA: Processing DevStatusAns");
       {
       int batLevel = command[i ++];
       // Margin
@@ -420,9 +425,11 @@ Handler::processMacCommand(const GatewayId &id, DeviceSession *session, const Me
       break;
     case NewChannelAns:
       // Status payload
+      m_handler->log(INFO, "LORA: Processing NewChannelAns");
       ++ i;
       break;
     case RXTimingSetupReq:
+      m_handler->log(INFO, "LORA: Processing RXTimingSetupReq");
       {
       if(command.size() <= i + 1) {
         break; // response
