@@ -308,9 +308,10 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
     GatewayId id(&msg[4]);
 
     if(m_gatewayAddress.find(id.toString()) == m_gatewayAddress.end()) {
-      m_gatewayAddress[id.toString()] = src;
       addGateway(&id);
     }
+
+    m_gatewayAddress[id.toString()] = src;
 
     udp::Bytearray response;
     response.push_back(version);
