@@ -20,7 +20,7 @@ void outputHelp(const char *what) {
   printf("Options:\n");
   printf("--port,-p <port>                UDP port to listen on\n");
   printf("--dir,-d <directory>            additional python path (multiple allowed)\n");
-  printf("--config,-c <directory>         python module containing config handlers\n");
+  printf("--config,-c <name>              python module containing config handlers\n");
   printf("--test,-t <devEUI:appEUI>       test config script with given devEUI/appEUI\n");
   printf("\n");
   printf("Built in Python modules:\n");
