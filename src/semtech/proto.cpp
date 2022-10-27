@@ -167,7 +167,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
   char message[msg.size()];
   lora::Bytearray loraData;
   int version = msg[0];
-  int16_t token = lora::extract_int(&msg[1], 2);
+  uint16_t token = lora::extract_int(&msg[1], 2);
   Command cmd = (Command)msg[3];
 
   if(version != 0x02) {
@@ -178,7 +178,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
   if(msg.size() > 12) {
     memcpy(message, &msg[12], msg.size()-12);
     message[msg.size()-12] = 0;
-    m_handler->logf(lora::DEBUG, "ST: Got json packet from %s: %s\n", src.address().c_str(), message);
+    m_handler->logf(lora::DEBUG, "ST: Got json packet from %s: %s", src.address().c_str(), message);
     if(!doc.deserialize_in_place(message)) {
       m_handler->logf(lora::ERR, "ST: Invalid json packet received: %s", message);
       return false;
@@ -317,10 +317,12 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
     response.push_back(version);
     lora::concat_int(response, token, 2);
     response.push_back(PULL_ACK);
-    srv->sendTo(response, src); // Push ack response
+    srv->sendTo(response, src); // Pull ack response
 
     }
+    break;
   case TX_ACK:
+    m_handler->logf(lora::DEBUG, "ST: Got TX_ACK from %s for token %u", src.address().c_str(), token);
     if(doc.is_object()) {
       std::string ack = doc["txpk_ack"]["error"].as_string_ptr();
 
@@ -330,6 +332,11 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
         d.currentShift += 50000;
 
         if(d.currentShift < 800000) {
+          struct timespec curTime;
+          clock_gettime(CLOCK_MONOTONIC_RAW, &curTime);
+          unsigned long long timestamp = curTime.tv_sec * 1000 + curTime.tv_nsec / 1000000; // In milliseconds
+          d.sentTimestamp = timestamp;
+
           sendGatewayData(d, token);
           break;
         }
@@ -362,9 +369,13 @@ ProtoHandler::sendData(const lora::GatewayId &id, lora::Bytearray &data, const l
   downlink.currentShift = 0;
   uint16_t token = rand() % UINT16_MAX;
 
-  if(s.txTimestampUs != 0) {
-    m_downlinkPackets.emplace(std::make_pair(token, downlink));
-  }
+  struct timespec curTime;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &curTime);
+  unsigned long long timestamp = curTime.tv_sec * 1000 + curTime.tv_nsec / 1000000; // In milliseconds
+  downlink.retries = 4;
+  downlink.sentTimestamp = timestamp;
+
+  m_downlinkPackets.emplace(std::make_pair(token, downlink));
 
   sendGatewayData(downlink, token);
 }
@@ -462,7 +473,8 @@ ProtoHandler::sendGatewayData(const LoraData &downlink, uint16_t token)
   jsonPacket += b64data;
   jsonPacket += "\"}}";
 
-  std::cout << "Sending json packet to " << addr.address() << ": " << jsonPacket << std::endl;
+  m_handler->logf(lora::DEBUG, "ST: Sending json packet [%u] to %s: %s ", token, addr.address().c_str(), jsonPacket.c_str());
+  //std::cout << "Sending json packet to " << addr.address() << ": " << jsonPacket << std::endl;
   udp::Bytearray bytes;
   bytes.push_back(0x02);
   lora::concat_int(bytes, token, 2);
@@ -470,6 +482,36 @@ ProtoHandler::sendGatewayData(const LoraData &downlink, uint16_t token)
   bytes.insert(bytes.end(), jsonPacket.begin(), jsonPacket.end());
 
   m_outboundServer->sendTo(bytes, addr);
+}
+
+void ProtoHandler::selectTimeout(udp::UdpServer *srv) {
+  struct timespec curTime;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &curTime);
+  unsigned long long timestamp = curTime.tv_sec * 1000 + curTime.tv_nsec / 1000000; // In milliseconds
+
+  for(auto lastDataSent = m_downlinkPackets.begin(); lastDataSent != m_downlinkPackets.end();) {
+    auto token = lastDataSent->first;
+    auto &data = lastDataSent->second;
+    const lora::GatewayId &id = dynamic_cast<const lora::GatewayId&>(data.gateway);
+    unsigned long long lastDataTimestamp = data.sentTimestamp;
+    if (lastDataTimestamp) {
+      if ((timestamp - lastDataTimestamp) > 2 * 1000) { // Wait 1 seconds
+        if(-- data.retries) {
+          data.sentTimestamp = timestamp;
+          sendGatewayData(data, token);
+        }
+        else {
+          m_handler->logf(lora::ERR, "ST: No TX_ACK received from gateway %s for data [%u], dropping. Check gateway connection!", id.toString().c_str(), token);
+          auto next = lastDataSent;
+          ++ next;
+          m_downlinkPackets.erase(lastDataSent);
+          lastDataSent = next;
+          continue;
+        }
+      }
+    }
+    ++ lastDataSent;
+  }
 }
 
 }

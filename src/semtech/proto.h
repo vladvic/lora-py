@@ -62,6 +62,8 @@ struct LoraData {
   GatewayId gateway;
   lora::Bytearray data;
   lora::MediaSettings settings;
+  uint32_t sentTimestamp;
+  uint32_t retries;
   uint32_t currentShift;
 };
 
@@ -72,6 +74,8 @@ class ProtoHandler
 public:
   ProtoHandler(lora::AppHandler *handler);
   virtual ~ProtoHandler() = default;
+  virtual void
+  selectTimeout(udp::UdpServer *srv);
   virtual bool 
   messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, const udp::NetworkAddress &src);
   virtual void
@@ -87,7 +91,6 @@ private:
   udp::UdpServer *m_outboundServer;
   lora::AppHandler *m_handler;
   std::map<std::string, udp::NetworkAddress> m_gatewayAddress;
-
   std::map<uint32_t, LoraData> m_downlinkPackets;
 };
 
