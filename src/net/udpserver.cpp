@@ -156,6 +156,7 @@ int UdpServer::process(int timeoutUs)
   }
 
   if(res == 0) {
+    m_handler->selectTimeout(this);
     return 0;
   }
 

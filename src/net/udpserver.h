@@ -46,6 +46,7 @@ class UdpServer;
 class UdpHandler {
 public:
   virtual ~UdpHandler() = default;
+  virtual void selectTimeout(UdpServer *srv) = 0;
   virtual bool messageReceived(UdpServer *srv, const Bytearray &msg, const NetworkAddress &src) = 0;
 };
 
