@@ -163,6 +163,10 @@ lora::DataRate ProtoHandler::dataRateFromString(const std::string &dr)
 bool
 ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, const udp::NetworkAddress &src)
 {
+  if (msg.size() < 12) {
+    return false;
+  }
+
   pjson::document doc;
   char message[msg.size()];
   lora::Bytearray loraData;
@@ -184,6 +188,8 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
       return false;
     }
   }
+
+  GatewayId id(&msg[4]);
 
   switch(cmd) {
   case PUSH_DATA:
@@ -258,7 +264,6 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
             params.lsnr = rxpkt["lsnr"].as_int32();
           }
 
-          GatewayId id(&msg[4]);
           const char *data = rxpkt["data"].as_string_ptr();
           base64Decode(loraData, data);
           try {
@@ -296,6 +301,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
       }
     }
 
+    updateGateway(id);
     }
     break;
   case PULL_DATA:
@@ -305,13 +311,11 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
       m_outboundServer = srv;
     }
 
-    GatewayId id(&msg[4]);
-
     if(m_gatewayAddress.find(id.toString()) == m_gatewayAddress.end()) {
       addGateway(&id);
     }
 
-    m_gatewayAddress[id.toString()] = src;
+    m_gatewayAddress[id.toString()].address = src;
 
     udp::Bytearray response;
     response.push_back(version);
@@ -319,6 +323,7 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
     response.push_back(PULL_ACK);
     srv->sendTo(response, src); // Pull ack response
 
+    updateGateway(id);
     }
     break;
   case TX_ACK:
@@ -350,6 +355,14 @@ ProtoHandler::messageReceived(udp::UdpServer *srv, const udp::Bytearray &msg, co
   }
 
   return true;
+}
+
+void ProtoHandler::updateGateway(const lora::GatewayId &id) {
+  auto gateway = m_gatewayAddress.find(id.toString());
+
+  if (gateway != m_gatewayAddress.end()) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &gateway->second.lastUpdateTime);
+  }
 }
 
 ProtoHandler::ProtoHandler(lora::AppHandler *handler)
@@ -394,7 +407,7 @@ ProtoHandler::sendGatewayData(const LoraData &downlink, uint16_t token)
     return;
   }
 
-  udp::NetworkAddress &addr = m_gatewayAddress[id.toString()];
+  udp::NetworkAddress &addr = m_gatewayAddress[id.toString()].address;
 
   jsonPacket = "{\"txpk\":{";
 
@@ -511,6 +524,17 @@ void ProtoHandler::selectTimeout(udp::UdpServer *srv) {
       }
     }
     ++ lastDataSent;
+  }
+
+  // Timeout gateways
+  auto gwInfo = m_gatewayAddress.begin();
+  while (gwInfo != m_gatewayAddress.end()) {
+    auto &lastTime = gwInfo->second.lastUpdateTime;
+    unsigned long long lastGwUpdate = lastTime.tv_sec * 1000 + lastTime.tv_nsec / 1000000; // In milliseconds
+    auto current = ++ gwInfo;
+    if ((timestamp - lastGwUpdate) > 60 * 1000) {
+      m_gatewayAddress.erase(current);
+    }
   }
 }
 

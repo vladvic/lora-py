@@ -87,6 +87,7 @@ public:
   sendData(const lora::GatewayId &id, lora::Bytearray &data, const lora::MediaSettings &settings);
 
 private:
+  void updateGateway(const lora::GatewayId &id);
   void sendGatewayData(const LoraData &downlink, uint16_t token);
   lora::DataRate dataRateFromString(const std::string &dr);
   lora::CodingRate codingRateFromString(const std::string &cr);
@@ -95,7 +96,7 @@ private:
 
   udp::UdpServer *m_outboundServer;
   lora::AppHandler *m_handler;
-  std::map<std::string, udp::NetworkAddress> m_gatewayAddress;
+  std::map<std::string, GatewayInfo> m_gatewayAddress;
   std::map<uint32_t, LoraData> m_downlinkPackets;
 };
 
