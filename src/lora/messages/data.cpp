@@ -12,7 +12,7 @@
 #include "../types.h"
 #include "../util/concat.h"
 #include "../aes.h"
-#include "dataup.h"
+#include "data.h"
 
 namespace lora {
 
