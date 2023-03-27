@@ -38,7 +38,7 @@ struct SendData {
 struct SendDataItem {
   int port;
   uint32_t sendBefore;
-  std::unique_ptr<GatewayId> gatewayId;
+  std::string gatewayId;
   DeviceSession *session;
   MediaSettings settings;
   Bytearray data;
@@ -84,6 +84,8 @@ public:
   sendData(const GatewayId &id, Bytearray &data, const MediaSettings &settings) = 0;
   void
   addGateway(GatewayId *gw);
+  void
+  removeGateway(GatewayId *gw);
 
 private:
   void processClassCSendQueue();

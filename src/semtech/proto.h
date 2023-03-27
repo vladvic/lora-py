@@ -37,6 +37,11 @@ private:
   std::string m_id;
 };
 
+struct GatewayInfo {
+  struct timespec lastUpdateTime;
+  udp::NetworkAddress address;
+};
+
 struct StatsMessage {
   std::string time; // | string | UTC 'system' time of the gateway, ISO 8601 'expanded' format
   double latitude; // | number | GPS latitude of the gateway in degree (float, N is +)

@@ -155,7 +155,7 @@ void Handler::processData(const GatewayId &id, Message &msg, const MediaParamete
 
   toSend->port = 0;
   toSend->confirmed = false;
-  toSend->gatewayId.reset(id.clone());
+  toSend->gatewayId = id.toString();
   toSend->settings.frequency = p.frequency;
   toSend->settings.rfChain = 0;
   toSend->settings.modulation = p.modulation;
@@ -473,10 +473,10 @@ Handler::sendDeviceData(const SendDataItem &data)
   std::string devEui = hexToString(devInfo->devEUI, sizeof(EUI));
   std::string appEui = hexToString(devInfo->appEUI, sizeof(EUI));
 
-  if (data.gatewayId != nullptr) {
-    std::string strId = data.gatewayId->toString();
-    m_handler->logf(INFO, "LORA: Sending device data through gw %s to device %s:%s", strId.c_str(), devEui.c_str(), appEui.c_str());
-    sendData(*data.gatewayId, payload, data.settings);
+  if (m_gateways.find(data.gatewayId) != m_gateways.end()) {
+    auto &gw = m_gateways.find(data.gatewayId)->second;
+    m_handler->logf(INFO, "LORA: Sending device data through gw %s to device %s:%s", data.gatewayId.c_str(), devEui.c_str(), appEui.c_str());
+    sendData(*gw, payload, data.settings);
   }
   else {
     for(auto &gw : m_gateways)
@@ -496,6 +496,17 @@ Handler::addGateway(GatewayId *gw)
   if (m_gateways.find(strId) == m_gateways.end()) {
     m_handler->logf(INFO, "LORA: Adding gateway %s", strId.c_str());
     m_gateways.emplace(strId, std::unique_ptr<GatewayId>(gw->clone()));
+  }
+}
+
+void
+Handler::removeGateway(GatewayId *gw)
+{
+  std::string strId = gw->toString();
+
+  if (m_gateways.find(strId) != m_gateways.end()) {
+    m_handler->logf(INFO, "LORA: Removing gateway %s", strId.c_str());
+    m_gateways.erase(strId);
   }
 }
 
