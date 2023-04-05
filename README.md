@@ -6,8 +6,6 @@ lora-py server performs most operations internally, leaving only app logic to Py
 
 # TODO
 
-Timeout gateways if it's not refreshed by periodical updates
-
 Add ability to refresh devices from the database (i.e. if a device is already cached, but have changed since then)
 
 # Lora-py Python handlers
