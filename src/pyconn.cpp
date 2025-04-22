@@ -570,7 +570,7 @@ getDeviceSession(const std::string &parser, uint32_t deviceAddr, uint32_t networ
 {
   PythonThreadLock lock;
   std::list<lora::DeviceSession> result;
-  const char functionName[] = "ndpd_get_device_session";
+  const char functionName[] = "ndpd_load_device_session";
   PyObject *pName, *pModule, *pFunc;
   PyObject *pArgs, *pValue;
 

@@ -1,13 +1,15 @@
-# lora-py
+![LoRaPy-Logo](./docs/LoRaPy_Logo.svg "LoRaPy Logo")
 
-lora-py is a C++ LoraWAN server with Python interface for all operations, including fetching device and session information,
+# What is LoRa-Py
+
+LoRa-Py is a C++ LoraWAN server with Python interface for all operations, including fetching device and session information,
 receiving device data, sending data back to device.
 lora-py server performs most operations internally, leaving only app logic to Python handlers.
 
-# TODO
-
-Add ability to refresh devices from the database (i.e. if a device is already cached, but have changed since then)
-
-# Lora-py Python handlers example
+# LoRa-Py Python handlers example
 
 https://github.com/vladvic/lora-py-handlers
+
+# See more
+
+[LoRa-py](https://vladvic.github.io/lora-py/)

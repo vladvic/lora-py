@@ -18,10 +18,11 @@
 void outputHelp(const char *what) {
   printf("Usage: %s [options]\n", what);
   printf("Options:\n");
-  printf("  --port,-p <port>                UDP port to listen on\n");
-  printf("  --dir,-d <directory>            additional python path (multiple allowed)\n");
-  printf("  --config,-c <name>              python module containing config handlers\n");
-  printf("  --test,-t <devEUI:appEUI>       test config script with given devEUI/appEUI\n");
+  printf("  --help,-h                       output this help\n");
+  printf("  --port,-p <port>                UDP port to listen on; default: 8000\n");
+  printf("  --dir,-d <directory>            additional python path (allowed multiple separated by :); default: handlers\n");
+  printf("  --config,-c <name>              python module containing config handlers; default: config\n");
+  printf("  --test,-t <devEUI:appEUI>       test config script with given devEUI/appEUI; default: 333133376938790c:5345454220312020\n");
   printf("\n");
   printf("Built in Python modules:\n");
   printf("\n");
@@ -37,9 +38,10 @@ void outputHelp(const char *what) {
   printf("Python handlers (callbacks):\n");
   printf("\n");
   printf("  ndpd_get_device_info(devEUI : <str>, appEUI : <str>) -> List(<lorawan.DeviceInfo)\n");
-  printf("  ndpd_get_device_session(deviceAddr : <Int>, networkAddr : <Int>) -> List(<lorawan.DeviceSession>)\n");
+  printf("  ndpd_load_device_session(deviceAddr : <Int>, networkAddr : <Int>) -> List(<lorawan.DeviceSession>)\n");
   printf("  ndpd_save_device_session(session : <lorawan.DeviceSession>)\n");
   printf("  ndpd_process_data(session : <lorawan.DeviceSession>, port : <Int>, data : <Bytearray>)\n");
+  printf("\n");
 }
 
 int main(int argc, char *const *argv) {
@@ -52,10 +54,11 @@ int main(int argc, char *const *argv) {
   static struct option long_options[] = {
     /* These options don’t set a flag.
        We distinguish them by their indices. */
+    {"help",   0, 0, 'h'}, // Help
     {"dir",    1, 0, 'd'}, // Additional python path
     {"config", 1, 0, 'c'}, // Configuration module name
-    {"port", 1, 0,   'p'}, // Port
-    {"test", 1, 0,   't'}, // Test config script
+    {"port",   1, 0, 'p'}, // Port
+    {"test",   1, 0, 't'}, // Test config script
     {0, 0, 0, 0}
   };  
   int option_index = 0;
