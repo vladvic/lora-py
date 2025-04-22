@@ -27,14 +27,23 @@
 #define PY_TO_ENUM(item, field, enumName) (item).field = (field == Py_None ? (enumName)0 : (enumName)PyLong_AsLong(field));
 
 typedef std::function<void(uint32_t, uint32_t, int, const char*, int, int)> DataSendCallback;
+typedef std::function<void(const std::string &, const std::string &)> InvalidateCallback;
 
-extern DataSendCallback dataSendCallback;
+extern DataSendCallback   dataSendCallback;
+extern InvalidateCallback invalidateCallback;
 
 template<typename T>
 void
 setDataSendCallback(T callback)
 {
   dataSendCallback = callback;
+}
+
+template<typename T>
+void
+setInvalidateCallback(T callback)
+{
+  invalidateCallback = callback;
 }
 
 void initPythonModule(const std::string &config);

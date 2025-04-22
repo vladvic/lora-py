@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <functional>
+#include <stdexcept>
 #include <map>
 #include "handler.h"
 #include "types.h"

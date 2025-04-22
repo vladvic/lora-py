@@ -8,6 +8,6 @@ lora-py server performs most operations internally, leaving only app logic to Py
 
 Add ability to refresh devices from the database (i.e. if a device is already cached, but have changed since then)
 
-# Lora-py Python handlers
+# Lora-py Python handlers example
 
 https://github.com/vladvic/lora-py-handlers

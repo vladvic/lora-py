@@ -7,6 +7,7 @@
  * $Date$
  ***************************************************/
 
+#include <signal.h>
 #include <iostream>
 #include <Python.h>
 #include "pyconn.h"
@@ -17,7 +18,8 @@ deviceSessionToPyObject(const lora::DeviceSession *info, bool deep = true);
 void
 pyObjectToDeviceSession(PyObject *item, lora::DeviceSession *info, bool deep = true);
 
-DataSendCallback dataSendCallback = NULL;
+DataSendCallback   dataSendCallback = NULL;
+InvalidateCallback invalidateCallback = NULL;
 
 class PythonThreadLock {
 public:
@@ -145,6 +147,29 @@ lorawan_initModule(PyObject *self)
 }
 
 static PyObject*
+lorawan_invalidate(PyObject *self, PyObject *args)
+{
+  char *deveui, *appeui;
+
+  if(!PyArg_ParseTuple(args, "ss:invalidate", &deveui, &appeui)) {
+    printf("Failed to parse tuple\n");
+    return Py_False;
+  }
+
+  if(!invalidateCallback) {
+    printf("No data callback\n");
+    return Py_False;
+  }
+
+  PyThreadState *old = _save, *save = PyEval_SaveThread();
+  invalidateCallback(deveui, appeui);
+  _save = old;
+  PyEval_RestoreThread(save);
+
+  return Py_True;
+}
+
+static PyObject*
 lorawan_send(PyObject *self, PyObject *args)
 {
   long netid, devaddr, port, confirm;
@@ -179,6 +204,8 @@ lorawan_send(PyObject *self, PyObject *args)
 static PyMethodDef LorawanMethods[] = {
   {"send", lorawan_send, METH_VARARGS,
    "Send lorawan data."},
+  {"invalidate", lorawan_invalidate, METH_VARARGS,
+   "Invalidate lorawan device"},
   {NULL, NULL, 0, NULL},
 };
 
@@ -214,6 +241,7 @@ initPythonModule(const std::string &config)
   Py_XDECREF(pModule);
 
   _save = PyEval_SaveThread();
+  signal(SIGINT, SIG_DFL);
 }
 
 void
@@ -221,7 +249,10 @@ finiPythonModule()
 {
   PyEval_RestoreThread(_save);
 
-  Py_DECREF(PyImport_ImportModule("threading"));
+  PyObject *pyModule = PyImport_ImportModule("threading");
+  if (pyModule) {
+    Py_DECREF(pyModule);
+  }
   Py_FinalizeEx();
 }
 

@@ -19,6 +19,8 @@ class AppHandler
 public:
   AppHandler(const std::string &configScript = "config", const std::string &base = "handlers");
   ~AppHandler();
+  void
+  invalidateDevice(const lora::EUI &devEUI, const lora::EUI &appEUI);
   virtual std::list<lora::DeviceInfo *>
   findDeviceInfo(const lora::EUI &devEUI, const lora::EUI &appEUI);
   virtual std::list<lora::DeviceSession *>
@@ -53,7 +55,6 @@ private:
   std::map<uint64_t, lora::DeviceSession> m_session;
   std::multimap<uint64_t, lora::DeviceSession*> m_sessionByDevAddr;
   std::map<void*, lora::SendDataList> m_sessionSendData;
-  std::map<void*, std::string> m_deviceHandler;
   std::string m_parserBase;
   uint32_t m_networkId;
   std::string m_configScript;

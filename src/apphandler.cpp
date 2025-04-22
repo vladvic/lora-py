@@ -60,6 +60,13 @@ AppHandler::AppHandler(const std::string &configScript, const std::string &base)
         log(WARN, "APP: Device session not found!");
       }
     });
+  setInvalidateCallback(
+    [this](const std::string &deveui, const std::string &appeui) {
+      lora::EUI devEUI, appEUI;
+      lora::stringToHex(deveui, devEUI, sizeof(devEUI));
+      lora::stringToHex(appeui, appEUI, sizeof(appEUI));
+      this->invalidateDevice(devEUI, appEUI);
+    });
 
   const char *pypath = getenv("PYTHONPATH");
   if(m_parserBase != "") {
@@ -125,6 +132,26 @@ AppHandler::getDeviceFromScript(const lora::EUI &devEUI, const lora::EUI &appEUI
   }
 }
 
+void
+AppHandler::invalidateDevice(const lora::EUI &devEUI, const lora::EUI &appEUI) {
+  std::string de = lora::hexToString(devEUI, sizeof(devEUI));
+  std::string ae = lora::hexToString(appEUI, sizeof(appEUI));
+
+  if(m_info.find(de+ae) == m_info.end()) {
+    return;
+  }
+
+  if(m_info.find(de+ae) != m_info.end()) {
+    auto device = m_info.find(de+ae);
+    // Do we want to invalidate the session as well?
+    if(device->second.session) {
+      saveDeviceSession(device->second.session);
+    }
+    eraseDeviceSession(device->second.session);
+    m_info.erase(device);
+  }
+}
+
 std::list<lora::DeviceInfo *>
 AppHandler::findDeviceInfo(const lora::EUI &devEUI, const lora::EUI &appEUI) {
   std::list<lora::DeviceInfo *> lst;
@@ -182,6 +209,10 @@ AppHandler::eraseDeviceSession(lora::DeviceSession *sess) {
 
   if(&m_session[addr] != sess) {
     return;
+  }
+
+  if(m_sessionSendData.find(sess) != m_sessionSendData.end()) {
+    m_sessionSendData.erase(sess);
   }
 
   auto it = m_sessionByDevAddr.lower_bound(sess->deviceAddr);

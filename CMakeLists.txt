@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(lora-server)
 
-include(ExternalProject)
+cmake_policy(SET CMP0148 OLD)
+
+#include(ExternalProject)
 
 set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${PATCH_NUMBER}")
 
@@ -39,7 +41,7 @@ enable_testing()
 set(LINK_LIBS -lrt)
 
 #compiler warnings settings 
-add_compile_options(-Wall -Wno-pragmas -Wno-braced-scalar-init -Wno-narrowing)
+add_compile_options(-Wall -Wno-pragmas -Wno-narrowing)
 #compiler optimization flags
 add_compile_options(-g -ffinite-math-only -fno-trapping-math -O3 -march=native -msse4.2 -mpclmul)
 if(CMAKE_COMPILER_IS_GNUCXX)
